@@ -4,7 +4,7 @@ import { APIResponse } from "../utils/APIResponse.js";
 import { User } from "../models/user.js";
 import { uploadOnCloud } from "../utils/cloudinary.js";
 
-const registeredUser = as(async (req, res) => {
+const registeredUser = (async (req, res) => {
     res.status(200).json({
         message: "ok",
     });
@@ -14,7 +14,7 @@ const registeredUser = as(async (req, res) => {
         throw new APIError(400, "All field are required.");
     }
 
-    const userExist = User.findOne({ $or: [{ email }, { user }] });
+    const userExist = await User.findOne({ $or: [{ email }, { user }] });
     if (userExist) {
         throw new APIError(409, "User already exist.");
     }

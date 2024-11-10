@@ -1,6 +1,6 @@
 import { mongoose, Schema } from "mongoose";
 import bcrypt from "bcrypt";
-import { jwt } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 const userSchema = new Schema(
     {
@@ -39,7 +39,7 @@ const userSchema = new Schema(
             required: [true, "Password can't  be empty!"],
         },
         refreshToken: {
-            type: true,
+            type: Boolean,
         },
     },
     { timestamps: true },
