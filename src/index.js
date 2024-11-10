@@ -1,22 +1,25 @@
-import dotenv from "dotenv"
-import connectDB from "./db/db.js"
-import { express } from "express"
+import dotenv from "dotenv";
+import connectDB from "./db/db.js";
+// import { app } from "./app.js";
 
-const app = express()
 
 dotenv.config({
-    path:'/.env'
-})
+    path: "./.env",
+});
 
 connectDB()
-.then(()=>{
-    app.listen(process.env.PORT || 8081, ()=>{
-        console.log(`server is live at: ${process.env.PORT}`);
+    .then(() => {
+        app.listen(
+            process.env.PORT
+            // || 8081
+            ,() => {
+                console.log(
+                    `server is live at: http://localhost:${process.env.PORT}`,
+                );
+            },
+        );
     })
-})
-.catch((err)=>{
-
-})
+    .catch((err) => {});
 // cFHvNxHvGCd3LH3k
 
 /*

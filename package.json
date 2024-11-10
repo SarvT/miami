@@ -1,5 +1,6 @@
 {
   "name": "miami",
+  "type":"module",
   "version": "1.0.0",
   "description": "a backend project by sarmt",
   "main": "index.js",

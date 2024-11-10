@@ -63,3 +63,4 @@ const uploadOnCloud = async (filePath) => {
         
     }
 }
+export {uploadOnCloud}
