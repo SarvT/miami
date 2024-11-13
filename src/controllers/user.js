@@ -4,6 +4,7 @@ import { APIResponse } from "../utils/APIResponse.js";
 import { User } from "../models/user.js";
 import { uploadOnCloud } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessnRefreshToken = async (userId) => {
     try {
@@ -204,55 +205,191 @@ const getCurrUser = asyncHandler(async (req, res) => {
     return res.status(200).json(new APIResponse(200, req.user, "current user"));
 });
 
-const updateUserDetails = asyncHandler(async(req, res)=>{
-        const {name, email} = req.body
+const updateUserDetails = asyncHandler(async (req, res) => {
+    const { name, email } = req.body;
 
-        if(!name || !email) throw new APIError(400, "all fields are required")
+    if (!name || !email) throw new APIError(400, "all fields are required");
 
-        const user = await User.findByIdAndUpdate(req.user?._id, {
-            $set:{
-                name, email:email, 
-            }
-        }, {new:true}).select("-password")
-
-        return res.status(200).json(new APIResponse(200, user, "User details updated successfully!"))
-})
-
-const updateProfilePicture = asyncHandler(async(req, res)=>{
-    const filePath = req.file?.path
-    if(!filePath) throw new APIError(400, "file not uploaded")
-    const profilePic = await uploadOnCloud(filePath)
-
-    if(!profilePic.url)throw new APIError(400, "error while uploading the picture")
-
-    const user = await User.findByIdAndUpdate(req.user?._id,
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
         {
-            $set:{
-                avatar: profilePic.url
-            }
-        },{new:true}).select("-password")
+            $set: {
+                name,
+                email: email,
+            },
+        },
+        { new: true },
+    ).select("-password");
 
-        
-        return res.status(200).json(new APIResponse(200, user, "Profile Picture updated successfully"))
-})
+    return res
+        .status(200)
+        .json(new APIResponse(200, user, "User details updated successfully!"));
+});
 
+const updateProfilePicture = asyncHandler(async (req, res) => {
+    const filePath = req.file?.path;
+    if (!filePath) throw new APIError(400, "file not uploaded");
+    const profilePic = await uploadOnCloud(filePath);
 
-const updateCvImg = asyncHandler(async(req, res)=>{
-    const filePath = req.file?.path
-    if(!filePath) throw new APIError(400, "file not uploaded")
-    const cvImg = await uploadOnCloud(filePath)
+    if (!profilePic.url)
+        throw new APIError(400, "error while uploading the picture");
 
-    if(!cvImg.url)throw new APIError(400, "error while uploading the picture")
-
-    const user = await User.findByIdAndUpdate(req.user?._id,
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
         {
-            $set:{
-                cover: cvImg.url
-            }
-        },{new:true}).select("-password")
+            $set: {
+                avatar: profilePic.url,
+            },
+        },
+        { new: true },
+    ).select("-password");
 
-        return res.status(200).json(new APIResponse(200, user, "Cover Image updated successfully"))
-})
+    return res
+        .status(200)
+        .json(
+            new APIResponse(200, user, "Profile Picture updated successfully"),
+        );
+});
+
+const updateCvImg = asyncHandler(async (req, res) => {
+    const filePath = req.file?.path;
+    if (!filePath) throw new APIError(400, "file not uploaded");
+    const cvImg = await uploadOnCloud(filePath);
+
+    if (!cvImg.url)
+        throw new APIError(400, "error while uploading the picture");
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                cover: cvImg.url,
+            },
+        },
+        { new: true },
+    ).select("-password");
+
+    return res
+        .status(200)
+        .json(new APIResponse(200, user, "Cover Image updated successfully"));
+});
+
+const getUserProfileDetails = asyncHandler(async (req, res) => {
+    const { user } = req.params;
+    if (!user) throw new APIError(400, "please provide a username.");
+
+    const profile = await User.aggregate([
+        {
+            $match: {
+                user: user?.toLowerCase(),
+            },
+        },
+        {
+            $lookup: {
+                from: PushSubscriptionOptions,
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            },
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreginField: "subscriber",
+                as: "subscribedTo",
+            },
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribedTo",
+                },
+                channelSubscribedToCount: {
+                    $size: "$subscribedTo",
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
+        },
+        {
+            $project: {
+                name: 1,
+                user: 1,
+                subscribersCount: 1,
+                channelSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                cover: 1,
+                email: 1,
+            },
+        },
+    ]);
+
+    if (!profile?.length) throw new APIError(404, "profile does not exist");
+
+    return res
+        .status(200)
+        .json(
+            new APIResponse(
+                200,
+                profile[0],
+                "user's profile fetched successfully.",
+            ),
+        );
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id),
+            },
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreginField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreginField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        name: 1,
+                                        user: 1,
+                                        avatar: 1,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {   //just to fetch the array concisely
+                        $addFields: {
+                            owner: {
+                                $first: "$owner",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ]);
+    return res.status(200).json(
+        new APIResponse(200, user[0].watchHistory, "successfully fetched the history of user")
+    )
+});
 
 export {
     registeredUser,
@@ -263,5 +400,7 @@ export {
     getCurrUser,
     updateUserDetails,
     updateProfilePicture,
-    updateCvImg
+    updateCvImg,
+    getUserProfileDetails,
+    getWatchHistory,
 };
